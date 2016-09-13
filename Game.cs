@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using NLog;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace klotski
 {
@@ -60,7 +61,7 @@ namespace klotski
     /// </summary>
     public class Game : Microsoft.Xna.Framework.Game
     {
-        public static Logger logger = LogManager.GetCurrentClassLogger();
+        private static Logger logger = LogManager.GetCurrentClassLogger();
 
         const int WINDOW_HEIGHT = 224;
         const int WINDOW_WIDTH = 184;
@@ -69,7 +70,7 @@ namespace klotski
         const int MIN_BLOCK_WIDTH = 40;
         const int MIN_BLOCK_HEIGHT = 40;
 
-        static readonly int[][] rawBlocks = new int[][] {
+        static readonly int[][] blocksInfo = new int[][] {
             new int[]{ 0, 0, 1, 2 },
             new int[]{ 1, 0, 2, 2 },
             new int[]{ 3, 0, 1, 2 },
@@ -86,11 +87,11 @@ namespace klotski
         SpriteBatch spriteBatch;
 
         List<GameObject> objects;
-        private Rectangle boardRect;
+        Rectangle boardRect;
 
-        private bool buttonPressed;
-        private Point clickPosition;
-        private GameObject selected;
+        bool buttonPressed;
+        Point clickPosition;
+        GameObject selected;
 
         public Game()
         {
@@ -98,6 +99,7 @@ namespace klotski
             Content.RootDirectory = "Content";
 
             IsMouseVisible = true;
+            
             graphics.PreferredBackBufferHeight = WINDOW_HEIGHT;
             graphics.PreferredBackBufferWidth = WINDOW_WIDTH;
         }
@@ -147,7 +149,7 @@ namespace klotski
                 boardRect = new Rectangle(r.X + BOARD_OFFSET_X, r.Y + BOARD_OFFSET_Y, r.Width - BOARD_OFFSET_X * 2, r.Height - BOARD_OFFSET_Y * 2);
             }
 
-            foreach (var blockInfo in rawBlocks)
+            foreach (var blockInfo in blocksInfo)
             {
                 int x = blockInfo[0];
                 int y = blockInfo[1];
@@ -200,16 +202,8 @@ namespace klotski
             logger.Debug($"OnMousePress {position}");
 
             clickPosition = position;
-            selected = null;
 
-            foreach (var obj in objects)
-            {
-                if (obj is Block && obj.Contains(position))
-                {
-                    selected = obj;
-                    break;
-                }
-            }
+            selected = objects.FirstOrDefault((obj) => obj is Block && obj.Contains(position));
         }
 
         private void OnMouseHold(Point position)
@@ -225,24 +219,26 @@ namespace klotski
                 {
                     logger.Debug($"OnMouseHold - moving {position}");
 
-                    bool success = false;
-
+                    Direction direction;
+                     
                     if (dX > 0)
                     {
-                        success = TryMoveBlock(Direction.RIGHT);
+                        direction = Direction.RIGHT;
                     }
                     else if (dX < 0)
                     {
-                        success = TryMoveBlock(Direction.LEFT);
+                        direction = Direction.LEFT;
                     }
                     else if (dY > 0)
                     {
-                        success = TryMoveBlock(Direction.DOWN);
+                        direction = Direction.DOWN;
                     }
-                    else if (dY < 0)
+                    else //if (dY < 0)
                     {
-                        success = TryMoveBlock(Direction.UP);
+                        direction = Direction.UP;
                     }
+
+                    bool success = TryMoveBlock(direction);
 
                     if (success)
                     {
@@ -285,15 +281,10 @@ namespace klotski
                 return false;
             }
 
-            foreach (var obj in objects)
+            if (objects.Any((obj) => 
+                    obj is Block && obj != selected && obj.Rectangle.Intersects(newRectangle)))
             {
-                if (obj is Block && obj != selected)
-                {
-                    if (obj.Rectangle.Intersects(newRectangle))
-                    {
-                        return false;
-                    }
-                }
+                return false;
             }
 
             logger.Debug($"success!");
